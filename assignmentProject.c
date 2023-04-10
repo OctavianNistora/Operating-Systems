@@ -3,6 +3,8 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 void displayFile(char* argv, struct stat buffer)
 {
@@ -53,17 +55,49 @@ void selectedOptions(char *argv, struct stat buffer)
 {
     int i=1;
     char options[8];
+
     while (1)
     {
+        i=0;
         printf("STANDARD INPUT : ");
         scanf("%7s", options);
-        if (options[0]=='-')
+        if (options[i]!='-')
+        {
+            continue;
+        }
+        i++;
+        if (options[i]=='n')
+        {
+            i++;
+        }
+        if (options[i]=='d')
+        {
+            i++;
+        }
+        if (options[i]=='h')
+        {
+            i++;
+        }
+        if (options[i]=='m')
+        {
+            i++;
+        }
+        if (options[i]=='a')
+        {
+            i++;
+        }
+        if (options[i]=='l')
+        {
+            i++;
+        }
+        if (options[i]=='\0' && i!=1)
         {
             break;
         }
         printf("Wrong input\n");
     }
     putchar('\n');
+    i=1;
 
     if (options[i]=='n')
     {
@@ -154,8 +188,141 @@ void selectedOptions(char *argv, struct stat buffer)
     }
 }
 
+int isDirectory(char *dir)
+{
+    struct stat dirStat;
+    lstat(dir, &dirStat);
+    if (S_ISDIR(dirStat.st_mode))
+    {
+        return 1;
+    }
+    return 0;
+}
+
+void printFileName(char *file)
+{
+    int first=0, last=strlen(file)-1;
+    while (file[last]=='/')
+    {
+        last--;
+    }
+    for (int i=0; i<last; i++)
+    {
+        if (file[i]=='/')
+        {
+            first=i+1;
+        }
+    }
+    printf("\e[1mName of directory:\e[0m %.*s\n", last-first+1, file+first);
+}
+
+int totalCFiles(char *dir)
+{
+    int count=0;
+    DIR *directory=opendir(dir);
+    struct dirent *entry;
+    while ((entry=readdir(directory))!=NULL)
+    {
+        int i=0;
+        while (entry->d_name[i]!='\0')
+        {
+            i++;
+        }
+        if (entry->d_name[i-1]=='c' && entry->d_name[i-2]=='.')
+        {
+            count++;
+        }
+
+        if (strcmp(entry->d_name, ".")!=0 && strcmp(entry->d_name, "..")!=0)
+        {
+            char potentialDirectory[256];
+            strcpy(potentialDirectory, dir);
+            strcat(potentialDirectory, "/");
+            strcat(potentialDirectory, entry->d_name);
+            struct stat buffer;
+            lstat(potentialDirectory, &buffer);
+            if (S_ISDIR(buffer.st_mode))
+            {
+                count+=totalCFiles(potentialDirectory);
+            }
+        }
+    }
+    closedir(directory);
+    return count;
+}
+
+void displayDirectory(char *dir)
+{
+    char options[6];
+    int i=0;
+    while (1)
+    {
+        i=0;
+        scanf("%5s", options);
+        if (options[i]!='-')
+        {
+            continue;
+        }
+        i++;
+        if (options[i]=='n')
+        {
+            i++;
+        }
+        if (options[i]=='d')
+        {
+            i++;
+        }
+        if (options[i]=='a')
+        {
+            i++;
+        }
+        if (options[i]=='c')
+        {
+            i++;
+        }
+        if (options[i]=='\0')
+        {
+            break;
+        }
+    }
+    i=1;
+    struct stat dirStat;
+    lstat(dir, &dirStat);
+    if (options[i]=='n')
+    {
+        printFileName(dir);
+        i++;
+    }
+    if (options[i]=='d')
+    {
+        printf("\e[1mSize of directory:\e[0m %ld bytes\n", dirStat.st_size);
+        i++;
+    }
+    if (options[i]=='a')
+    {
+        char string[256];
+        strftime(string, sizeof(string), "%d/%m/%y %T", gmtime(&dirStat.st_atime));
+        printf("\e[1mTime of last access:\e[0m %s\n", string);
+        i++;
+    }
+    if (options[i]=='c')
+    {
+        char string[256];
+        strcpy(string, dir);
+        int n=strlen(string);
+        while (string[n-1]=='/')
+        {
+            string[n-1]='\0';
+            n--;
+        }
+        printf("\e[1mNumber of C files in directory:\e[0m %d\n", totalCFiles(string));
+        i++;
+    }
+}
+
 int main(int argc, char* argv[])
 {
+    /*
     struct stat buffer;
     for (int i=1; i<argc; i++)
     {
@@ -174,4 +341,18 @@ int main(int argc, char* argv[])
         printf("\n\n");
     }
     return 0;
+    */
+
+
+    for (int i=1; i<argc; i++)
+    {
+        if (!isDirectory(argv[i]))
+        {
+            printf("%s is not a directory\n", argv[i]);
+            continue;
+        }
+        displayDirectory(argv[i]);
+    }
+    return 0;
+    
 }
