@@ -1,0 +1,1 @@
+gcc -Wall -o "`echo "$1" | rev | cut -c 2- | rev`out" $1
