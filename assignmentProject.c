@@ -395,7 +395,8 @@ void interactDirectory(char *dir, struct stat buffer, char options[])
 int main(int argc, char* argv[])
 {
     pid_t pid[200];
-    int j=0;
+    int iF=0, iS=0;
+    char options[100][9], symlink[100][101];
 
     for (int i=1; i<argc; i++)
     {
@@ -410,87 +411,112 @@ int main(int argc, char* argv[])
 
         if (S_ISREG(buffer.st_mode))
         {
-            char options[9], symlink[101];
             do
             {
                 displayMenuRegular();
-                scanf("%8s", options);
-            }while(!verifyRegularOptions(options));
-            if (strchr(options, 'l'))
+                scanf("%8s", options[iF]);
+            }while(!verifyRegularOptions(options[iF]));
+            if (strchr(options[iF], 'l'))
             {
                 printf("Please give the link name:\n");
                 printf("STANDARD INPUT: ");
-                scanf("%100s", symlink);
+                scanf("%100s", symlink[iS]);
+                iS++;
             }
             printf("\n");
-            if ((pid[j]=fork())<0)
+            iF++;
+        }
+
+        else if (S_ISDIR(buffer.st_mode))
+        {
+            do
+            {
+                displayMenuDirectory();
+                scanf("%6s", options[iF]);
+                printf("\n");
+            }while(!verifyDirectoryOptions(options[iF]));
+            iF++;
+        }
+    }
+
+    int jF=0, jS=0, iP=0;
+    for (int i=1; i<argc; i++)
+    {
+        struct stat buffer;
+        if (lstat(argv[i], &buffer)<0)
+        {
+            printf("Wrong file or not a file\n");
+            continue;
+        }
+        if (S_ISREG(buffer.st_mode))
+        {
+            if ((pid[iP]=fork())<0)
             {
                 printf("Fork failed\n");
                 exit(1);
             }
-            if (pid[j]==0)
+            if (pid[iP]==0)
             {
-                interactRegular(argv[i], buffer, options, symlink);
+                interactRegular(argv[i], buffer, options[jF], symlink[jS]);
                 exit(0);
             }
+            iP++;
+
+            if (strchr(options[jF], 'l'))
+            {
+                jS++;
+            }
+            jF++;
+
             if (strstr(argv[i]+strlen(argv[i])-2, ".c"))
             {
-                if ((pid[j+1]=fork())<0)
+                if ((pid[iP]=fork())<0)
                 {
                     printf("Fork failed\n");
                     exit(1);
                 }
-                if (pid[j+1]==0)
+                if (pid[iP]==0)
                 {
                     execlp("./regularCFileScript.sh", "./regularCFileScript.sh", argv[i], NULL);
-                    exit(0);
                 }
-                j++;
+                iP++;
             }
-            j++;
         }
 
-        if (S_ISDIR(buffer.st_mode))
+        else if (S_ISDIR(buffer.st_mode))
         {
-            char options[7];
-            do
-            {
-                displayMenuDirectory();
-                scanf("%6s", options);
-                printf("\n");
-            }while(!verifyDirectoryOptions(options));
-            
-            if ((pid[j]=fork())<0)
+            if ((pid[iP]=fork())<0)
             {
                 printf("Fork failed\n");
                 exit(1);
             }
-            if (pid[j]==0)
+            if (pid[iP]==0)
             {
-                interactDirectory(argv[i], buffer, options);
+                interactDirectory(argv[i], buffer, options[jF]);
                 exit(0);
             }
-            j++;
+            jF++;
+            iP++;
 
-            if ((pid[j]=fork())<0)
+            if ((pid[iP]=fork())<0)
             {
                 printf("Fork failed\n");
                 exit(1);
             }
-            if (pid[j]==0)
+            if (pid[iP]==0)
             {
                 char textFileName[256];
                 int first, last;
                 printFileName(argv[i], &first, &last);
                 strncpy(textFileName, argv[i]+first, last-first+1);
-                strcat(textFileName, ".txt");
+                strcat(textFileName, "_file.txt");
                 execlp("touch", "touch", textFileName, NULL);
-                exit(0);
             }
+            iP++;
         }
     }
 
-    for (int i=0; i<j; i++)
+    for (int i=0; i<iF; i++)
     {
         waitpid(pid[i], NULL, 0);
     }
