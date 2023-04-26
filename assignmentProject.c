@@ -291,6 +291,7 @@ void interactRegular(char *argv, struct stat buffer, char options[], char *symNa
         }
     }
     printf("%s", temp);
+    printf("\n");
 }
 
 int isDirectory(char *dir)
@@ -390,6 +391,7 @@ void interactDirectory(char *dir, struct stat buffer, char options[])
         i++;
     }
     printf("%s", temp);
+    printf("\n");
 }
 
 int main(int argc, char* argv[])

@@ -1,3 +1,4 @@
+#!/bin/bash
 countErrors=0
 countWarnings=0
 
