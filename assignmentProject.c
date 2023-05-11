@@ -194,6 +194,7 @@ void interactRegular(char *argv, struct stat buffer, char options[], char *symNa
 
     char temp[4096];
     strcpy(temp, "");
+
     if (options[i]=='n')
     {
         strcat(temp, "\e[1mName of file:\e[0m ");
@@ -260,6 +261,7 @@ void interactRegular(char *argv, struct stat buffer, char options[], char *symNa
             {
                 strcat(temp, "   Read - no\n");
             }
+
             if (buffer.st_mode & (S_IWUSR>>k*3))
             {
                 strcat(temp, "   Write - yes\n");
@@ -268,6 +270,7 @@ void interactRegular(char *argv, struct stat buffer, char options[], char *symNa
             {
                 strcat(temp, "   Write - no\n");
             }
+
             if (buffer.st_mode & (S_IXUSR>>k*3))
             {
                 strcat(temp, "   Exec - yes\n");
@@ -291,7 +294,8 @@ void interactRegular(char *argv, struct stat buffer, char options[], char *symNa
             strcat(temp, "STANDARD OUTPUT: the link was created\n");
         }
     }
-    printf("%s\n", temp);
+    strcat(temp, "\n");
+    printf("%s", temp);
 }
 
 int isDirectory(char *dir)
@@ -431,8 +435,8 @@ void interactSymbolic(char *argv, struct stat buffer, char options[])
         }
         i++;
     }
+    strcat(temp, "\n");
     printf("%s", temp);
-    printf("\n");
 }
 
 void interactDirectory(char *dir, struct stat buffer, char options[])
@@ -441,6 +445,7 @@ void interactDirectory(char *dir, struct stat buffer, char options[])
     
     char temp[4096];
     strcpy(temp, "");
+
     if (options[i]=='n')
     {
         strcat(temp, "\e[1mName of directory:\e[0m ");
@@ -450,6 +455,7 @@ void interactDirectory(char *dir, struct stat buffer, char options[])
         strcat(temp, "\n");
         i++;
     }
+
     if (options[i]=='d')
     {
         strcat(temp, "\e[1mSize of directory:\e[0m ");
@@ -459,15 +465,55 @@ void interactDirectory(char *dir, struct stat buffer, char options[])
         strcat(temp, " bytes\n");
         i++;
     }
+
     if (options[i]=='a')
     {
-        char string[256];
-        strftime(string, sizeof(string), "%d/%m/%y %T", gmtime(&buffer.st_atime));
         strcat(temp, "\e[1mAccess rights:\e[0m\n");
-        strcat(temp, string);
-        strcat(temp, "\n");
+        for (int k=0; k<3; k++)
+        {
+            if (k==0)
+            {
+                strcat(temp, "  \e[4mUser:\e[0m\n");
+            }
+            else if (k==1)
+            {
+                strcat(temp, "  \e[4mGroup:\e[0m\n");
+            }
+            else
+            {
+                strcat(temp, "  \e[4mOthers:\e[0m\n");
+            }
+            
+            if (buffer.st_mode & (S_IRUSR>>k*3))
+            {
+                strcat(temp, "   Read - yes\n");
+            }
+            else
+            {
+                strcat(temp, "   Read - no\n");
+            }
+
+            if (buffer.st_mode & (S_IWUSR>>k*3))
+            {
+                strcat(temp, "   Write - yes\n");
+            }
+            else
+            {
+                strcat(temp, "   Write - no\n");
+            }
+
+            if (buffer.st_mode & (S_IXUSR>>k*3))
+            {
+                strcat(temp, "   Exec - yes\n");
+            }
+            else
+            {
+                strcat(temp, "   Exec - no\n");
+            }
+        }
         i++;
     }
+
     if (options[i]=='c')
     {
         char string[256];
@@ -485,8 +531,8 @@ void interactDirectory(char *dir, struct stat buffer, char options[])
         strcat(temp, "\n");
         i++;
     }
+    strcat(temp, "\n");
     printf("%s", temp);
-    printf("\n");
 }
 
 int main(int argc, char* argv[])
@@ -524,7 +570,7 @@ int main(int argc, char* argv[])
 
             if ((pid[0]=fork())<0)
             {
-                printf("Fork error\n");
+                printf("fork failed\n");
                 exit(1);
             }
             else if (pid[0]==0)
@@ -538,12 +584,12 @@ int main(int argc, char* argv[])
                 int pipefd[2];
                 if (pipe(pipefd)<0)
                 {
-                    printf("Pipe error\n");
-                    exit(1);
+                    printf("pipe failed\n");
+                    exit(2);
                 }
                 if ((pid[1]=fork())<0)
                 {
-                    printf("Fork failed\n");
+                    printf("fork failed\n");
                     exit(1);
                 }
                 if (pid[1]==0)
@@ -552,9 +598,23 @@ int main(int argc, char* argv[])
                     dup2(pipefd[1], 1);
                     close(pipefd[1]);
                     execlp("./regularCFileScript.sh", "./regularCFileScript.sh", argv[i], NULL);
+                    printf("script failed\n");
+                    exit(3);
                 }
-
                 close(pipefd[1]);
+
+                pid_t waitPid;
+                int status;
+                for (int i=0; i<2; i++)
+                {
+                    waitPid=wait(&status);
+                    if(WIFEXITED(status))
+                    {
+                        printf("The process with PID %d has ended with the exit code %d\n", waitPid, WEXITSTATUS(status));
+                    }
+                }
+                printf("\n\n\n\n");
+
                 char buffer[21];
                 int i=0, erros, warnings;
                 while (read(pipefd[0], &buffer[i], 1)>0)
@@ -615,17 +675,20 @@ int main(int argc, char* argv[])
                     strcat(scoreString, digit);
                 }
                 write(gradeFile, scoreString, strlen(scoreString));
+                continue;
             }
             else
             {
                 if ((pid[1]=fork())<0)
                 {
-                    printf("Fork failed\n");
+                    printf("fork failed\n");
                     exit(1);
                 }
                 if (pid[1]==0)
                 {
                     execlp("grep", "grep", "-c", """",  argv[i], NULL);
+                    printf("grep failed\n");
+                    exit(3);
                 }
             }
         }
@@ -641,7 +704,7 @@ int main(int argc, char* argv[])
 
             if ((pid[0]=fork())<0)
             {
-                printf("Fork error\n");
+                printf("fork failed\n");
                 exit(1);
             }
             else if (pid[0]==0)
@@ -654,12 +717,14 @@ int main(int argc, char* argv[])
             {
                 if ((pid[1]=fork())<0)
                 {
-                    printf("Fork failed\n");
+                    printf("fork failed\n");
                     exit(1);
                 }
                 if (pid[1]==0)
                 {
                     execlp("chmod", "chmod", "0760", argv[i], NULL);
+                    printf("chmod failed\n");
+                    exit(3);
                 }
             }
         }
@@ -675,7 +740,7 @@ int main(int argc, char* argv[])
 
             if ((pid[0]=fork())<0)
             {
-                printf("Fork error\n");
+                printf("fork failed\n");
                 exit(1);
             }
             else if (pid[0]==0)
@@ -686,7 +751,7 @@ int main(int argc, char* argv[])
 
             if ((pid[1]=fork())<0)
             {
-                printf("Fork failed\n");
+                printf("fork failed\n");
                 exit(1);
             }
             if (pid[1]==0)
@@ -697,16 +762,26 @@ int main(int argc, char* argv[])
                 strncpy(textFileName, argv[i]+first, last-first+1);
                 strcat(textFileName, "_file.txt");
                 execlp("touch", "touch", textFileName, NULL);
+                printf("touch failed\n");
+                exit(3);
             }
         }
 
-        int status, waitPid;
+        pid_t waitPid;
+        int status;
         for (int i=0; i<2; i++)
         {
             waitPid=wait(&status);
-            printf("The process with PID %d has ended with the exit code %d\n", waitPid, status);
+            if(WIFEXITED(status))
+            {
+                printf("The process with PID %d has ended with the exit code %d\n", waitPid, WEXITSTATUS(status));
+            }
         }
+
+        printf("\n\n\n\n");
     }
     return 0;
     
 }
+
+//Laurentiu ; Claudiu
